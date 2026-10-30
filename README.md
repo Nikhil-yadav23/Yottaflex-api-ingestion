@@ -98,6 +98,7 @@ The tests cover:
 - Duplicate business keys
 - Raw response retention
 - Idempotent reruns
+- Malformed-record quarantine and stale-event handling
 
 GitHub Actions automatically runs the test suite on pushes and pull requests. 
 The initial workflow completed successfully.
