@@ -106,6 +106,13 @@ class IngestionPipeline:
                     customer_ids = {r[0] for r in conn.execute("SELECT customer_id FROM customers").fetchall()}
                     if entity == "customers":
                         for record in rows:
+                            if not isinstance(record, dict):
+                                self._reject(
+                                    conn, run_id, entity, page, None, 
+                                    "record_not_object", record
+                                )
+                                counts["rejected"] += 1
+                                continue
                             key = str(record.get("customer_id", ""))
                             reason = _validate_customer(record)
                             if not reason and (key in seen or key in seen_customer_ids): reason = "duplicate_primary_key_in_run"
@@ -119,6 +126,13 @@ class IngestionPipeline:
                                          (key, record["email"], record["created_at"], record["status"], run_id, page)); counts["output"] += 1
                     else:
                         for record in rows:
+                            if not isinstance(record, dict):
+                                self._reject(
+                                    conn, run_id, entity, page, None,
+                                    "record_not_object", record
+                                )
+                                counts["rejected"] += 1
+                                continue
                             key = str(record.get("order_id", ""))
                             event_key = f"{key}:{record.get('event_version', '')}"
                             reason = _validate_order(record, customer_ids)
