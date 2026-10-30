@@ -281,6 +281,7 @@ Performance optimization should be based on profiling. Batched SQLite writes usi
 - `docs/` — data dictionary and design trade-offs
 - `sql/` — SQL validation and reconciliation queries
 - `scripts/benchmark.py` — synthetic-data generation benchmark
+- `scripts/benchmark_ingestion.py` — end-to-end API ingestion benchmark
 - `.github/workflows/tests.yml` — automated test workflow
 
 ## End-to-End Ingestion Benchmark
