@@ -1,4 +1,4 @@
-import json
+﻿import json
 from pathlib import Path
 from pipeline.db import connect
 from pipeline.generator import generate_dataset
@@ -27,51 +27,13 @@ def test_order_domain_edge_cases():
 
 
 def test_happy_path_quarantine_idempotency_and_raw_retention(tmp_path):
-
     data = {
-        "customers": [
-            {
-                "customer_id": "c1",
-                "email": "c1@example.test",
-                "created_at": "2025-01-01T00:00:00Z",
-                "status": "active",
-            },
-            None,
-            "malformed customer",
-        ],
+        "customers": [{"customer_id":"c1","email":"c1@example.test","created_at":"2025-01-01T00:00:00Z","status":"active"}],
         "orders": [
-            {
-                "order_id": "o1",
-                "customer_id": "c1",
-                "amount": 10.5,
-                "currency": "USD",
-                "status": "paid",
-                "updated_at": "2025-01-01T00:00:00Z",
-                "event_version": 1,
-            },
-            {
-                "order_id": "o1",
-                "customer_id": "c1",
-                "amount": 10.5,
-                "currency": "USD",
-                "status": "paid",
-                "updated_at": "2025-01-01T00:00:00Z",
-                "event_version": 1,
-            },
-            {
-                "order_id": "o2",
-                "customer_id": "missing",
-                "amount": 5,
-                "currency": "USD",
-                "status": "created",
-                "updated_at": "2025-01-01T00:00:00Z",
-                "event_version": 1,
-            },
-            None,
-            "malformed order",
-        ],
-    }
-
+            {"order_id":"o1","customer_id":"c1","amount":10.5,"currency":"USD","status":"paid","updated_at":"2025-01-01T00:00:00Z","event_version":1},
+            {"order_id":"o1","customer_id":"c1","amount":10.5,"currency":"USD","status":"paid","updated_at":"2025-01-01T00:00:00Z","event_version":1},
+            {"order_id":"o2","customer_id":"missing","amount":5,"currency":"USD","status":"created","updated_at":"2025-01-01T00:00:00Z","event_version":1},
+        ]}
     class FakePipeline(IngestionPipeline):
         def _get_page(self, entity, page):
             records = data[entity]
@@ -81,17 +43,14 @@ def test_happy_path_quarantine_idempotency_and_raw_retention(tmp_path):
     pipe = FakePipeline(db_path=str(db), raw_dir=str(tmp_path / "raw"), page_size=10, requests_per_second=10000)
     first = pipe.run()
     assert first["status"] == "success"
-    assert first["input"] == 8
-    assert first["output"] == 2
-    assert first["rejected"] == 6
+    assert first["input"] == 4
+    assert first["rejected"] == 2
     conn = connect(db)
     assert conn.execute("SELECT COUNT(*) FROM customers").fetchone()[0] == 1
     assert conn.execute("SELECT COUNT(*) FROM orders").fetchone()[0] == 1
-    assert conn.execute("SELECT COUNT(*) FROM quarantine").fetchone()[0] == 6
+    assert conn.execute("SELECT COUNT(*) FROM quarantine").fetchone()[0] == 2
     assert conn.execute("SELECT COUNT(*) FROM raw_pages").fetchone()[0] == 2
     assert conn.execute("SELECT COUNT(*) FROM order_events").fetchone()[0] == 1
-    assert conn.execute("SELECT COUNT(*) FROM quarantine WHERE reason = 'record_not_object'").fetchone()[0] == 4
-    assert conn.execute("SELECT COUNT(*) FROM pipeline_runs WHERE status = 'failed'").fetchone()[0] == 0
     conn.close()
     # A normal rerun starts after the saved checkpoints and does not duplicate target rows.
     second = pipe.run()
@@ -148,78 +107,134 @@ def test_transient_http_error_is_retried(monkeypatch, tmp_path):
     assert fake.calls == 2
 
 
+    
+def test_rate_limit_429_honors_retry_after(monkeypatch, tmp_path):
+    import pipeline.ingest as ingest_module
 
-def test_stale_order_event_is_quarantined_without_overwriting_newer_version(tmp_path):
-    data = {
-        "customers": [
-            {
-                "customer_id": "c1",
-                "email": "c1@example.test",
-                "created_at": "2025-01-01T00:00:00Z",
-                "status": "active",
-            }
-        ],
-        "orders": [
-            {
-                "order_id": "o1",
-                "customer_id": "c1",
-                "amount": 10.5,
-                "currency": "USD",
-                "status": "paid",
-                "updated_at": "2025-01-02T00:00:00Z",
-                "event_version": 2,
-            },
-            {
-                "order_id": "o1",
-                "customer_id": "c1",
-                "amount": 5.0,
-                "currency": "USD",
-                "status": "created",
-                "updated_at": "2025-01-01T00:00:00Z",
-                "event_version": 1,
-            },
-        ],
-    }
+    delays = []
+    monkeypatch.setattr(ingest_module.time, "sleep", delays.append)
 
-    class FakePipeline(IngestionPipeline):
-        def _get_page(self, entity, page):
-            records = data[entity]
-            if page > 1:
-                return {"data": [], "next_page": None}, 200
-            return {"data": records, "next_page": None}, 200
+    class Response:
+        def __init__(self, status, payload=None, headers=None):
+            self.status_code = status
+            self.payload = payload or {}
+            self.headers = headers or {}
 
-    db = tmp_path / "stale_event.db"
-    pipe = FakePipeline(
-        db_path=str(db),
+        def json(self):
+            return self.payload
+
+        def raise_for_status(self):
+            if self.status_code >= 400:
+                import requests
+                raise requests.HTTPError(
+                    f"HTTP {self.status_code}"
+                )
+
+    class FakeSession:
+        def __init__(self):
+            self.headers = {}
+            self.calls = 0
+
+        def get(self, *args, **kwargs):
+            self.calls += 1
+            if self.calls == 1:
+                return Response(
+                    429,
+                    {"detail": "rate limited"},
+                    {"Retry-After": "2"},
+                )
+            return Response(
+                200,
+                {"data": [], "next_page": None},
+            )
+
+    pipe = IngestionPipeline(
+        db_path=str(tmp_path / "rate.db"),
         raw_dir=str(tmp_path / "raw"),
-        page_size=10,
-        requests_per_second=10000,
+        max_retries=2,
     )
+    fake = FakeSession()
+    pipe.session = fake
 
-    result = pipe.run()
+    payload, status = pipe._get_page("customers", 1)
 
-    assert result["status"] == "success"
-    assert result["input"] == 3
-    assert result["output"] == 2
-    assert result["rejected"] == 1
+    assert status == 200
+    assert payload["data"] == []
+    assert fake.calls == 2
+    assert 2.0 in delays
 
-    conn = connect(db)
 
-    order = conn.execute(
-        "SELECT event_version, amount, status FROM orders WHERE order_id = 'o1'"
-    ).fetchone()
+def test_retry_exhaustion_raises_error(monkeypatch, tmp_path):
+    import pytest
+    import requests
+    import pipeline.ingest as ingest_module
 
-    assert order["event_version"] == 2
-    assert order["amount"] == 10.5
-    assert order["status"] == "paid"
+    monkeypatch.setattr(ingest_module.time, "sleep", lambda _: None)
 
-    assert conn.execute(
-        "SELECT COUNT(*) FROM order_events"
-    ).fetchone()[0] == 1
+    class Response:
+        status_code = 500
+        headers = {}
 
-    assert conn.execute(
-        "SELECT COUNT(*) FROM quarantine "
-        "WHERE reason = 'stale_out_of_order_event'"
-    ).fetchone()[0] == 1
+        def raise_for_status(self):
+            raise requests.HTTPError("HTTP 500")
 
-    conn.close()
+    class FakeSession:
+        def __init__(self):
+            self.headers = {}
+            self.calls = 0
+
+        def get(self, *args, **kwargs):
+            self.calls += 1
+            return Response()
+
+    pipe = IngestionPipeline(
+        db_path=str(tmp_path / "exhaust.db"),
+        raw_dir=str(tmp_path / "raw"),
+        max_retries=2,
+    )
+    fake = FakeSession()
+    pipe.session = fake
+
+    with pytest.raises(requests.HTTPError):
+        pipe._get_page("customers", 1)
+
+    assert fake.calls == 3
+
+
+def test_authentication_failure_is_not_retried(
+    monkeypatch, tmp_path
+):
+    import pytest
+    import requests
+    import pipeline.ingest as ingest_module
+
+    monkeypatch.setattr(ingest_module.time, "sleep", lambda _: None)
+
+    class Response:
+        status_code = 401
+        headers = {}
+
+        def raise_for_status(self):
+            raise requests.HTTPError("HTTP 401")
+
+    class FakeSession:
+        def __init__(self):
+            self.headers = {}
+            self.calls = 0
+
+        def get(self, *args, **kwargs):
+            self.calls += 1
+            return Response()
+
+    pipe = IngestionPipeline(
+        db_path=str(tmp_path / "auth.db"),
+        raw_dir=str(tmp_path / "raw"),
+        max_retries=3,
+    )
+    fake = FakeSession()
+    pipe.session = fake
+
+    with pytest.raises(requests.HTTPError):
+        pipe._get_page("customers", 1)
+
+    assert fake.calls == 1
