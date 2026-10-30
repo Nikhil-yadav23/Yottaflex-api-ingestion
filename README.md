@@ -17,51 +17,72 @@ See [data dictionary](docs/data_dictionary.md) and [design trade-offs](docs/desi
 - Python 3.10+
 - No paid services or external credentials required
 
+
 ## Setup (Windows PowerShell)
 
 Requirements: Python 3.10 or later.
 
-From the repository root, run:
+Create and activate a virtual environment, then install dependencies:
 
+```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -e ".[test]"
+```
 
-If PowerShell blocks virtual-environment activation, run this command in the current terminal session and then activate the environment:
+If PowerShell blocks virtual-environment activation, run:
 
+```powershell
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 .\.venv\Scripts\Activate.ps1
+```
 
-The .env.example file documents the supported environment variables. The application does not automatically load a .env file.
-The default mock API key is local-demo-key. Do not commit real credentials.
+The `.env.example` file documents supported environment variables. The application does not automatically load a `.env` file. The default mock API key is `local-demo-key`. Do not commit real credentials.
 
 ## Run locally (Windows PowerShell)
-Open two PowerShell terminals from the repository root.
-Terminal 1 — Start the mock API
 
+Open two PowerShell terminals from the repository root.
+
+### Terminal 1 — Start the mock API
+
+```powershell
 $env:PYTHONPATH = "src"
 python -m uvicorn pipeline.mock_api:app --host 127.0.0.1 --port 8000
+```
 
 Keep this terminal running while you execute the ingestion pipeline.
 
-Terminal 2 — Run ingestion
+### Terminal 2 — Run ingestion
+
+```powershell
 $env:PYTHONPATH = "src"
 $env:API_BASE_URL = "http://127.0.0.1:8000"
 $env:API_KEY = "local-demo-key"
 python -m pipeline.ingest
+```
 
-The pipeline prints a run summary containing the input, accepted output, rejected records, pages fetched and execution duration.
-To replay all source pages as a backfill:
+The pipeline prints a run summary containing input, accepted output, rejected records, pages fetched, and execution duration.
 
+### Backfill
+
+To replay all source pages:
+
+```powershell
 python -m pipeline.ingest --backfill
+```
 
-Optional configuration
+### Optional configuration
+
 Set mock data volumes before starting the API in Terminal 1:
+
+```powershell
 $env:MOCK_CUSTOMERS = "10000"
 $env:MOCK_ORDERS = "100000"
 python -m uvicorn pipeline.mock_api:app --host 127.0.0.1 --port 8000
+```
 
-You can configure PAGE_SIZE to reduce the number of requests for larger runs. Set MOCK_TRANSIENT_FAILURE=1 before starting the mock API to simulate a transient HTTP 500 response on page 2 for each entity. The ingestion client retries transient errors and respects Retry-After when provided.
+You can configure `PAGE_SIZE` to reduce requests for larger runs. Set `MOCK_TRANSIENT_FAILURE=1` before starting the mock API to simulate a transient HTTP 500 response on page 2 for each entity. The ingestion client retries transient errors and respects `Retry-After` when provided.
+
 
 ## Tests
 Run the automated test suite from the repository root:
@@ -115,7 +136,7 @@ Expected invariant: `orphan_orders = 0`; `order_events` has at most one row per 
 - The mock API can be reset by calling `POST /admin/reset-faults` with `X-API-Key: local-demo-key`.
 
 ## Performance measurement
-The `scripts/benchmark.py` script runs repeatable synthetic volumes and reports elapsed time and records/second. In this environment, generating 1,000 customers and 10,005 orders took 0.038 seconds (about 289,670 generated records/second); this measures synthetic data generation, not database ingestion. A real mock-API integration run ingested 605 source records across 7 pages in about 1.50 seconds, accepted 601 and quarantined 4. A sensible first optimization is batched SQLite writes (`executemany`) after profiling. The design intentionally avoids unnecessary cloud infrastructure for a 72-hour take-home.
+The `scripts/benchmark.py` script runs repeatable synthetic volumes and reports elapsed time and records/second. In this environment, generating 1,000 customers and 10,005 orders took 0.038 seconds (about 289,670 generated records/second); this measures synthetic data generation, not database ingestion. A real mock-API integration run ingested 605 source records across 7 pages in approximately 1.67 seconds, accepted 601 and quarantined 4. Actual execution time may vary between runs. A sensible first optimization is batched SQLite writes (`executemany`) after profiling. The design intentionally avoids unnecessary cloud infrastructure for a 72-hour take-home.
 
 ## Repository contents
 - `src/pipeline/mock_api.py` — reproducible local API with pagination, auth, rate limit and transient faults
