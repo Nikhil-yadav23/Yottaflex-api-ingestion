@@ -27,13 +27,51 @@ def test_order_domain_edge_cases():
 
 
 def test_happy_path_quarantine_idempotency_and_raw_retention(tmp_path):
+
     data = {
-        "customers": [{"customer_id":"c1","email":"c1@example.test","created_at":"2025-01-01T00:00:00Z","status":"active"}],
+        "customers": [
+            {
+                "customer_id": "c1",
+                "email": "c1@example.test",
+                "created_at": "2025-01-01T00:00:00Z",
+                "status": "active",
+            },
+            None,
+            "malformed customer",
+        ],
         "orders": [
-            {"order_id":"o1","customer_id":"c1","amount":10.5,"currency":"USD","status":"paid","updated_at":"2025-01-01T00:00:00Z","event_version":1},
-            {"order_id":"o1","customer_id":"c1","amount":10.5,"currency":"USD","status":"paid","updated_at":"2025-01-01T00:00:00Z","event_version":1},
-            {"order_id":"o2","customer_id":"missing","amount":5,"currency":"USD","status":"created","updated_at":"2025-01-01T00:00:00Z","event_version":1},
-        ]}
+            {
+                "order_id": "o1",
+                "customer_id": "c1",
+                "amount": 10.5,
+                "currency": "USD",
+                "status": "paid",
+                "updated_at": "2025-01-01T00:00:00Z",
+                "event_version": 1,
+            },
+            {
+                "order_id": "o1",
+                "customer_id": "c1",
+                "amount": 10.5,
+                "currency": "USD",
+                "status": "paid",
+                "updated_at": "2025-01-01T00:00:00Z",
+                "event_version": 1,
+            },
+            {
+                "order_id": "o2",
+                "customer_id": "missing",
+                "amount": 5,
+                "currency": "USD",
+                "status": "created",
+                "updated_at": "2025-01-01T00:00:00Z",
+                "event_version": 1,
+            },
+            None,
+            "malformed order",
+        ],
+    }
+
     class FakePipeline(IngestionPipeline):
         def _get_page(self, entity, page):
             records = data[entity]
