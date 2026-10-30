@@ -171,7 +171,7 @@ The following figures are from a demonstrated local integration run. Execution t
 | Records accepted | 601 |
 | Records quarantined | 4 |
 | Pages fetched | 7 |
-| Execution time | Approximately 1.67 seconds |
+| Execution time | Approximately 1.502 seconds |
 
 A simulated transient HTTP 500 response was retried, and ingestion subsequently completed successfully.
 
@@ -282,6 +282,29 @@ Performance optimization should be based on profiling. Batched SQLite writes usi
 - `sql/` — SQL validation and reconciliation queries
 - `scripts/benchmark.py` — synthetic-data generation benchmark
 - `.github/workflows/tests.yml` — automated test workflow
+
+## End-to-End Ingestion Benchmark
+Run the benchmark with the local mock API running and the required environment variables configured.
+
+**Run once:**
+```powershell
+python scripts/benchmark_ingestion.py
+```
+
+**Run three repetitions:**
+```powershell
+python scripts/benchmark_ingestion.py --repeats 3
+```
+
+### Observed Results
+
+| Run | Input | Accepted | Rejected | Pages | Time (seconds) | Records/second |
+|---|---:|---:|---:|---:|---:|---:|
+| 1 | 605 | 601 | 4 | 7 | 0.1939 | 3119.59 |
+| 2 | 605 | 601 | 4 | 7 | 2.2297 | 271.33 |
+| 3 | 605 | 601 | 4 | 7 | 2.2128 | 273.40 |
+
+The benchmark runs against a local mock API. HTTP 429 rate limiting and retry delays contributed to performance variation. These results are illustrative and are not a production-scale performance guarantee.
 
 ## Project Goal
 
