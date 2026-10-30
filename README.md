@@ -89,7 +89,7 @@ Run the automated test suite from the repository root:
 ```powershell
 python -m pytest -v
 ```
-The local test suite completed successfully with 8 tests passed.
+The test suite initially passed 8 tests. After adding malformed-record and stale-event coverage, the latest GitHub Actions workflow passed successfully with the expanded test suite.
 The tests cover:
 - Deterministic synthetic data generation
 - Empty input and unexpected schema shapes
@@ -136,7 +136,7 @@ Expected invariant: `orphan_orders = 0`; `order_events` has at most one row per 
 - The mock API can be reset by calling `POST /admin/reset-faults` with `X-API-Key: local-demo-key`.
 
 ## Performance measurement
-The `scripts/benchmark.py` script runs repeatable synthetic volumes and reports elapsed time and records/second. In this environment, generating 1,000 customers and 10,005 orders took 0.038 seconds (about 289,670 generated records/second); this measures synthetic data generation, not database ingestion. A real mock-API integration run ingested 605 source records across 7 pages in approximately 1.67 seconds, accepted 601 and quarantined 4. Actual execution time may vary between runs. A sensible first optimization is batched SQLite writes (`executemany`) after profiling. The design intentionally avoids unnecessary cloud infrastructure for a 72-hour take-home.
+The `scripts/benchmark.py` script runs repeatable synthetic volumes and reports elapsed time and records/second. In this environment, generating 1,000 customers and 10,005 orders took 0.038 seconds (about 289,670 generated records/second); this measures synthetic data generation, not database ingestion. A real mock-API integration run ingested 605 source records across 7 pages in approximately 1.50 seconds, accepted 601 and quarantined 4. Actual execution time may vary between runs. A sensible first optimization is batched SQLite writes (`executemany`) after profiling. The design intentionally avoids unnecessary cloud infrastructure for a 72-hour take-home.
 
 ## Repository contents
 - `src/pipeline/mock_api.py` — reproducible local API with pagination, auth, rate limit and transient faults
