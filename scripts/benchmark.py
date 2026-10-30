@@ -1,3 +1,8 @@
+"""Benchmark deterministic synthetic-data generation.
+
+This benchmark does not measure HTTP ingestion or database write performance.
+"""
+
 import argparse
 import time
 
