@@ -1,0 +1,72 @@
+{
+  "generated_at_utc": "2026-10-30T01:59:42Z",
+  "run": {
+    "run_id": "4dccbead-b7c7-48c9-85ae-b65ce7a87a37",
+    "started_at": "2026-10-30T01:58:46.735293Z",
+    "ended_at": "2026-10-30T01:58:48.237232Z",
+    "status": "success",
+    "input_count": 605,
+    "output_count": 601,
+    "rejected_count": 4,
+    "pages_fetched": 7,
+    "error_message": null,
+    "duration_seconds": 1.5019431629999929
+  },
+  "table_counts": {
+    "customers": 100,
+    "orders": 501,
+    "order_events": 501,
+    "quarantine": 4,
+    "raw_pages": 7
+  },
+  "rejects_by_reason": [
+    {
+      "entity": "orders",
+      "reason": "duplicate_event_in_run",
+      "count": 1
+    },
+    {
+      "entity": "orders",
+      "reason": "invalid_customer_reference",
+      "count": 1
+    },
+    {
+      "entity": "orders",
+      "reason": "missing_required_field:amount",
+      "count": 1
+    },
+    {
+      "entity": "orders",
+      "reason": "negative_amount",
+      "count": 1
+    }
+  ],
+  "orphan_orders": 0,
+  "orders_by_status": [
+    {
+      "status": "cancelled",
+      "order_count": 125,
+      "total_amount": 168132.44
+    },
+    {
+      "status": "created",
+      "order_count": 116,
+      "total_amount": 140898.6
+    },
+    {
+      "status": "paid",
+      "order_count": 116,
+      "total_amount": 142171.05
+    },
+    {
+      "status": "shipped",
+      "order_count": 144,
+      "total_amount": 181478.68
+    }
+  ],
+  "notes": [
+    "Run output is captured from a real local mock API execution.",
+    "Transient HTTP 500 on orders page 2 was retried successfully.",
+    "Input count includes source records fetched; output count is accepted records, not a table row count."
+  ]
+}

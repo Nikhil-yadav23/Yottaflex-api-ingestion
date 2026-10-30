@@ -1,0 +1,171 @@
+{
+  "customers": [
+    {
+      "customer_id": "cus_000001",
+      "email": "customer1@example.test",
+      "created_at": "2025-01-02T00:00:00Z",
+      "status": "active"
+    },
+    {
+      "customer_id": "cus_000002",
+      "email": "customer2@example.test",
+      "created_at": "2025-01-03T00:00:00Z",
+      "status": "active"
+    },
+    {
+      "customer_id": "cus_000003",
+      "email": "customer3@example.test",
+      "created_at": "2025-01-04T00:00:00Z",
+      "status": "active"
+    },
+    {
+      "customer_id": "cus_000004",
+      "email": "customer4@example.test",
+      "created_at": "2025-01-05T00:00:00Z",
+      "status": "active"
+    },
+    {
+      "customer_id": "cus_000005",
+      "email": "customer5@example.test",
+      "created_at": "2025-01-06T00:00:00Z",
+      "status": "active"
+    }
+  ],
+  "orders": [
+    {
+      "order_id": "ord_0000001",
+      "customer_id": "cus_000001",
+      "amount": 63.5,
+      "currency": "USD",
+      "status": "shipped",
+      "updated_at": "2025-01-01T00:07:00Z",
+      "event_version": 1
+    },
+    {
+      "order_id": "ord_0000002",
+      "customer_id": "cus_000002",
+      "amount": 558.8,
+      "currency": "USD",
+      "status": "created",
+      "updated_at": "2025-01-01T00:14:00Z",
+      "event_version": 1
+    },
+    {
+      "order_id": "ord_0000003",
+      "customer_id": "cus_000005",
+      "amount": 218.26,
+      "currency": "USD",
+      "status": "cancelled",
+      "updated_at": "2025-01-01T00:21:00Z",
+      "event_version": 1
+    },
+    {
+      "order_id": "ord_0000004",
+      "customer_id": "cus_000001",
+      "amount": 75.46,
+      "currency": "USD",
+      "status": "paid",
+      "updated_at": "2025-01-01T00:28:00Z",
+      "event_version": 1
+    },
+    {
+      "order_id": "ord_0000005",
+      "customer_id": "cus_000002",
+      "amount": 1263.88,
+      "currency": "USD",
+      "status": "created",
+      "updated_at": "2025-01-01T00:35:00Z",
+      "event_version": 1
+    },
+    {
+      "order_id": "ord_0000006",
+      "customer_id": "cus_000005",
+      "amount": 497.9,
+      "currency": "USD",
+      "status": "cancelled",
+      "updated_at": "2025-01-01T00:42:00Z",
+      "event_version": 1
+    },
+    {
+      "order_id": "ord_0000007",
+      "customer_id": "cus_000002",
+      "amount": 1123.57,
+      "currency": "USD",
+      "status": "shipped",
+      "updated_at": "2025-01-01T00:49:00Z",
+      "event_version": 1
+    },
+    {
+      "order_id": "ord_0000008",
+      "customer_id": "cus_000001",
+      "amount": 1897.26,
+      "currency": "USD",
+      "status": "paid",
+      "updated_at": "2025-01-01T00:56:00Z",
+      "event_version": 1
+    },
+    {
+      "order_id": "ord_0000009",
+      "customer_id": "cus_000004",
+      "amount": 851.29,
+      "currency": "USD",
+      "status": "paid",
+      "updated_at": "2025-01-01T01:03:00Z",
+      "event_version": 1
+    },
+    {
+      "order_id": "ord_0000010",
+      "customer_id": "cus_000002",
+      "amount": 2393.08,
+      "currency": "USD",
+      "status": "shipped",
+      "updated_at": "2025-01-01T01:10:00Z",
+      "event_version": 1
+    },
+    {
+      "order_id": "ord_0000001",
+      "customer_id": "cus_000001",
+      "amount": 63.5,
+      "currency": "USD",
+      "status": "shipped",
+      "updated_at": "2025-01-01T00:07:00Z",
+      "event_version": 1
+    },
+    {
+      "order_id": "ord_0000002",
+      "customer_id": "cus_000002",
+      "amount": null,
+      "currency": "USD",
+      "status": "created",
+      "updated_at": "2025-01-01T00:14:00Z",
+      "event_version": 1
+    },
+    {
+      "order_id": "ord_invalid_fk",
+      "customer_id": "cus_999999",
+      "amount": 218.26,
+      "currency": "USD",
+      "status": "cancelled",
+      "updated_at": "2025-01-01T00:21:00Z",
+      "event_version": 1
+    },
+    {
+      "order_id": "ord_negative_amount",
+      "customer_id": "cus_000001",
+      "amount": -5.0,
+      "currency": "USD",
+      "status": "paid",
+      "updated_at": "2025-01-01T00:28:00Z",
+      "event_version": 1
+    },
+    {
+      "order_id": "ord_late_event",
+      "customer_id": "cus_000002",
+      "amount": 1263.88,
+      "currency": "USD",
+      "status": "created",
+      "updated_at": "2024-12-01T00:00:00Z",
+      "event_version": 2
+    }
+  ]
+}

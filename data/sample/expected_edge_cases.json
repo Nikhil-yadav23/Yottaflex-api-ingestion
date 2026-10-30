@@ -1,0 +1,32 @@
+{
+  "purpose": "Expected edge-case labels are kept separate from source input data.",
+  "expected_rejects": [
+    {
+      "entity": "orders",
+      "record_key": "ord_0000001",
+      "reason": "duplicate_event_in_run"
+    },
+    {
+      "entity": "orders",
+      "record_key": "ord_0000002",
+      "reason": "missing_required_field:amount"
+    },
+    {
+      "entity": "orders",
+      "record_key": "ord_invalid_fk",
+      "reason": "invalid_customer_reference"
+    },
+    {
+      "entity": "orders",
+      "record_key": "ord_negative_amount",
+      "reason": "negative_amount"
+    }
+  ],
+  "expected_special_cases": [
+    {
+      "entity": "orders",
+      "record_key": "ord_late_event",
+      "case": "late_arriving_timestamp_with_higher_event_version; retained in event history"
+    }
+  ]
+}
