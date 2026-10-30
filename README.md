@@ -17,66 +17,87 @@ See [data dictionary](docs/data_dictionary.md) and [design trade-offs](docs/desi
 - Python 3.10+
 - No paid services or external credentials required
 
-## Setup
+## Setup (Windows PowerShell)
 
-```bash
+Requirements: Python 3.10 or later.
+
+From the repository root, run:
+
 python -m venv .venv
-# Windows: .venv\Scripts\activate
-# macOS/Linux:
-source .venv/bin/activate
-python -m pip install -e '.[test]'
-# .env.example documents the supported environment variables; export them in your shell.
-# The app does not automatically load a .env file.
-```
+.\.venv\Scripts\Activate.ps1
+python -m pip install -e ".[test]"
 
-Default API key is `local-demo-key`. Do not commit real credentials.
+If PowerShell blocks virtual-environment activation, run this command in the current terminal session and then activate the environment:
 
-## Run locally
-Open two terminals from the repository root.
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\.venv\Scripts\Activate.ps1
 
-Terminal 1 — start the mock source API:
+The .env.example file documents the supported environment variables. The application does not automatically load a .env file.
+The default mock API key is local-demo-key. Do not commit real credentials.
 
-```bash
-uvicorn pipeline.mock_api:app --app-dir src --host 127.0.0.1 --port 8000
-```
+## Run locally (Windows PowerShell)
+Open two PowerShell terminals from the repository root.
+Terminal 1 — Start the mock API
 
-Terminal 2 — run ingestion:
+$env:PYTHONPATH = "src"
+python -m uvicorn pipeline.mock_api:app --host 127.0.0.1 --port 8000
 
-```bash
-# macOS/Linux example; Windows PowerShell can set equivalent environment variables
-export API_BASE_URL=http://127.0.0.1:8000
-export API_KEY=local-demo-key
+Keep this terminal running while you execute the ingestion pipeline.
+
+Terminal 2 — Run ingestion
+$env:PYTHONPATH = "src"
+$env:API_BASE_URL = "http://127.0.0.1:8000"
+$env:API_KEY = "local-demo-key"
 python -m pipeline.ingest
-```
 
-To replay all pages as a backfill:
+The pipeline prints a run summary containing the input, accepted output, rejected records, pages fetched and execution duration.
+To replay all source pages as a backfill:
 
-```bash
 python -m pipeline.ingest --backfill
-```
 
-The default generator provides 100 customers and 505 orders (500 normal plus labelled edge cases). Configure mock volume before starting the API:
+Optional configuration
+Set mock data volumes before starting the API in Terminal 1:
+$env:MOCK_CUSTOMERS = "10000"
+$env:MOCK_ORDERS = "100000"
+python -m uvicorn pipeline.mock_api:app --host 127.0.0.1 --port 8000
 
-```bash
-export MOCK_CUSTOMERS=10000
-export MOCK_ORDERS=100000
-uvicorn pipeline.mock_api:app --app-dir src --host 127.0.0.1 --port 8000
-```
-
-Use `PAGE_SIZE=500` to reduce request count for large runs. `MOCK_TRANSIENT_FAILURE=1` injects one transient HTTP 500 on page 2 per entity to exercise retries. The API rate limit may produce HTTP 429 responses; the client respects `Retry-After` and retries transient errors.
+You can configure PAGE_SIZE to reduce the number of requests for larger runs. Set MOCK_TRANSIENT_FAILURE=1 before starting the mock API to simulate a transient HTTP 500 response on page 2 for each entity. The ingestion client retries transient errors and respects Retry-After when provided.
 
 ## Tests
-
-```bash
-pytest
+Run the automated test suite from the repository root:
+```powershell
+python -m pytest -v
 ```
+The local test suite completed successfully with 8 tests passed.
+The tests cover:
+- Deterministic synthetic data generation
+- Empty input and unexpected schema shapes
+- Missing or malformed fields
+- Negative amounts and invalid foreign keys
+- Duplicate business keys
+- Raw response retention
+- Idempotent reruns
+GitHub Actions automatically runs the test suite on pushes and pull requests. The initial workflow completed successfully.
 
-The suite covers deterministic generation, empty input, malformed/missing fields, negative amounts, invalid foreign keys, duplicate keys, raw retention, rerun idempotency and unexpected schema shape. GitHub Actions runs the test suite on pushes and pull requests.
+## Validation results
+The local integration run demonstrated successful ingestion with retry handling and data quality checks.
+Sample ingestion run
+- Records fetched: 605
+- Records accepted: 601
+- Records quarantined: 4
+- Pages fetched: 7
+- Execution time: approximately 1.67 seconds
+A simulated transient HTTP 500 response was retried, and the ingestion run subsequently completed successfully.
+
+Database reconciliation
+The following checks returned zero violations:
+- Orphan orders: 0
+- Duplicate order IDs: 0
+- Duplicate event versions: 0
+Rejected records remain traceable in the quarantine table for investigation. These results represent the demonstrated local run; results may differ with other data volumes or configurations.
 
 ## Inspect results
-
 Open SQLite with any SQLite browser or run:
-
 ```bash
 sqlite3 data/output/pipeline.db "SELECT status, input_count, output_count, rejected_count, pages_fetched, duration_seconds FROM pipeline_runs ORDER BY started_at DESC LIMIT 5;"
 sqlite3 data/output/pipeline.db "SELECT entity, reason, COUNT(*) AS rejected_rows FROM quarantine GROUP BY entity, reason ORDER BY rejected_rows DESC;"
