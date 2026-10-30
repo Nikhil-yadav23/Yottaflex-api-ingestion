@@ -1,58 +1,95 @@
+
 # Reliable Paginated API Ingestion Pipeline
 
-A local-first data engineering project for the YottaFlex.ai Associate AI Forward Deployed Engineer coding challenge. It demonstrates paginated HTTP ingestion, API-key authentication, retry/backoff, rate limiting, incremental page checkpoints, raw response retention, schema/business validation, quarantine, idempotent publishing, event history, operational metrics and automated tests.
+A local-first data engineering project built for the YottaFlex.ai Associate AI Forward Deployed Engineer coding challenge.
+
+The pipeline demonstrates reliable paginated HTTP ingestion, API-key authentication, retry and backoff, rate-limit handling, incremental checkpoints, raw response retention, schema and business validation, quarantine, idempotent publishing, event history, operational metrics, and automated testing.
 
 ## Architecture
 
 ```text
-Synthetic source generator -> FastAPI mock API -> Requests ingestion client
-    -> raw page JSON + SQLite raw_pages -> schema/business validation
-    -> customers / orders / order_events OR quarantine
-    -> checkpoints + run metrics -> SQL reconciliation report
+Synthetic source generator
+        |
+        v
+FastAPI mock API
+        |
+        v
+Paginated HTTP ingestion client
+        |
+        v
+Raw page JSON + SQLite raw_pages
+        |
+        v
+Schema and business validation
+        |
+        +----------------------+
+        |                      |
+        v                      v
+Customers / Orders /       Quarantine
+Order Events
+        |
+        v
+Checkpoints + Run Metrics
+        |
+        v
+SQL Reconciliation Checks
 ```
 
-See [data dictionary](docs/data_dictionary.md) and [design trade-offs](docs/design_tradeoffs.md).
+See the [data dictionary](docs/data_dictionary.md) and [design trade-offs](docs/design_tradeoffs.md).
 
 ## Requirements
-- Python 3.10+
-- No paid services or external credentials required
 
+- Python 3.10 or newer
+- Windows PowerShell for the commands below
+- No paid services or external credentials required for the local demo
 
-## Setup (Windows PowerShell)
+## Setup
 
-Requirements: Python 3.10 or later.
+Run these commands from the repository root.
 
-Create and activate a virtual environment, then install dependencies:
+### 1. Create a virtual environment
 
 ```powershell
 python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install -e ".[test]"
 ```
 
-If PowerShell blocks virtual-environment activation, run:
+### 2. Activate the environment
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+```
+
+If PowerShell blocks activation, run the following command in the current terminal session, then activate the environment:
 
 ```powershell
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 .\.venv\Scripts\Activate.ps1
 ```
 
-The `.env.example` file documents supported environment variables. The application does not automatically load a `.env` file. The default mock API key is `local-demo-key`. Do not commit real credentials.
+### 3. Install dependencies
 
-## Run locally (Windows PowerShell)
+```powershell
+python -m pip install -e ".[test]"
+```
 
-Open two PowerShell terminals from the repository root.
+The `.env.example` file documents supported environment variables. The application does not automatically load a `.env` file.
 
-### Terminal 1 — Start the mock API
+The default local mock API key is `local-demo-key`. Do not commit real credentials or secrets.
+
+## Run Locally
+
+Open two PowerShell terminals from the repository root. Activate the virtual environment in both terminals.
+
+### Terminal 1: Start the mock API
 
 ```powershell
 $env:PYTHONPATH = "src"
 python -m uvicorn pipeline.mock_api:app --host 127.0.0.1 --port 8000
 ```
 
-Keep this terminal running while you execute the ingestion pipeline.
+Keep this terminal running.
 
-### Terminal 2 — Run ingestion
+### Terminal 2: Run ingestion
 
 ```powershell
 $env:PYTHONPATH = "src"
@@ -61,7 +98,7 @@ $env:API_KEY = "local-demo-key"
 python -m pipeline.ingest
 ```
 
-The pipeline prints a run summary containing input, accepted output, rejected records, pages fetched, and execution duration.
+The pipeline prints a run summary containing the number of records fetched, accepted and rejected, pages fetched, and execution duration.
 
 ### Backfill
 
@@ -71,26 +108,45 @@ To replay all source pages:
 python -m pipeline.ingest --backfill
 ```
 
-### Optional configuration
+Run this command in Terminal 2.
 
-Set mock data volumes before starting the API in Terminal 1:
+## Optional Configuration
+
+To increase the mock dataset, set these variables in Terminal 1 before starting the mock API:
 
 ```powershell
 $env:MOCK_CUSTOMERS = "10000"
 $env:MOCK_ORDERS = "100000"
+$env:PYTHONPATH = "src"
 python -m uvicorn pipeline.mock_api:app --host 127.0.0.1 --port 8000
 ```
 
-You can configure `PAGE_SIZE` to reduce requests for larger runs. Set `MOCK_TRANSIENT_FAILURE=1` before starting the mock API to simulate a transient HTTP 500 response on page 2 for each entity. The ingestion client retries transient errors and respects `Retry-After` when provided.
+You can configure `PAGE_SIZE` to reduce the number of requests for larger runs.
 
+To simulate a transient HTTP 500 response on page 2 for each entity, set the following variable before starting the mock API:
 
-## Tests
-Run the automated test suite from the repository root:
+```powershell
+$env:MOCK_TRANSIENT_FAILURE = "1"
+```
+
+The ingestion client retries transient failures and respects `Retry-After` when provided.
+
+## Automated Tests
+
+Run the test suite from the repository root:
+
 ```powershell
 python -m pytest -v
 ```
-The test suite initially passed 8 tests. After adding malformed-record and stale-event coverage, the latest GitHub Actions workflow passed successfully with the expanded test suite.
-The tests cover:
+
+For a concise summary:
+
+```powershell
+python -m pytest -q
+```
+
+The suite covers the following areas:
+
 - Deterministic synthetic data generation
 - Empty input and unexpected schema shapes
 - Missing or malformed fields
@@ -99,53 +155,134 @@ The tests cover:
 - Raw response retention
 - Idempotent reruns
 - Malformed-record quarantine and stale-event handling
+- Rate-limit handling and `Retry-After`
+- Retry exhaustion
+- Authentication failures that must not be retried
 
-GitHub Actions automatically runs the test suite on pushes and pull requests. 
-The initial workflow completed successfully.
+The exact passing test count should be taken from the latest test run. GitHub Actions is configured to run the test suite on pushes and pull requests.
 
-## Validation results
-The local integration run demonstrated successful ingestion with retry handling and data quality checks.
-Sample ingestion run
-- Records fetched: 605
-- Records accepted: 601
-- Records quarantined: 4
-- Pages fetched: 7
-- Execution time: approximately 1.67 seconds
-A simulated transient HTTP 500 response was retried, and the ingestion run subsequently completed successfully.
+## Validation Results
 
-Database reconciliation
-The following checks returned zero violations:
-- Orphan orders: 0
-- Duplicate order IDs: 0
-- Duplicate event versions: 0
-Rejected records remain traceable in the quarantine table for investigation. These results represent the demonstrated local run; results may differ with other data volumes or configurations.
+The following figures are from a demonstrated local integration run. Execution time can vary by environment and run.
 
-## Inspect results
-Open SQLite with any SQLite browser or run:
-```bash
-sqlite3 data/output/pipeline.db "SELECT status, input_count, output_count, rejected_count, pages_fetched, duration_seconds FROM pipeline_runs ORDER BY started_at DESC LIMIT 5;"
-sqlite3 data/output/pipeline.db "SELECT entity, reason, COUNT(*) AS rejected_rows FROM quarantine GROUP BY entity, reason ORDER BY rejected_rows DESC;"
-sqlite3 data/output/pipeline.db "SELECT COUNT(*) AS customers FROM customers; SELECT COUNT(*) AS orders FROM orders; SELECT COUNT(*) AS event_versions FROM order_events;"
-sqlite3 data/output/pipeline.db "SELECT COUNT(*) AS orphan_orders FROM orders o LEFT JOIN customers c USING(customer_id) WHERE c.customer_id IS NULL;"
+| Metric | Observed result |
+|---|---:|
+| Records fetched | 605 |
+| Records accepted | 601 |
+| Records quarantined | 4 |
+| Pages fetched | 7 |
+| Execution time | Approximately 1.67 seconds |
+
+A simulated transient HTTP 500 response was retried, and ingestion subsequently completed successfully.
+
+### Database Reconciliation
+
+The following checks returned zero violations in the demonstrated run:
+
+| Check | Observed violations |
+|---|---:|
+| Orphan orders | 0 |
+| Duplicate order IDs | 0 |
+| Duplicate event versions | 0 |
+
+Rejected records remain traceable in the quarantine table for investigation.
+
+These figures describe the demonstrated run, not a guarantee for every configuration or dataset.
+
+## Inspect Results
+
+The pipeline uses SQLite for its output and operational state. You can inspect the database with a SQLite browser or the SQLite command-line tool.
+
+View recent pipeline runs:
+
+```sql
+SELECT
+    status,
+    input_count,
+    output_count,
+    rejected_count,
+    pages_fetched,
+    duration_seconds
+FROM pipeline_runs
+ORDER BY started_at DESC
+LIMIT 5;
 ```
 
-Expected invariant: `orphan_orders = 0`; `order_events` has at most one row per `(order_id, event_version)`; `orders` has at most one row per `order_id`. Rejected records remain traceable in `quarantine`. A run's input count is the number of records fetched on that run; output count is the number of records accepted for processing, including accepted upserts. Therefore input may differ from current table counts, and quarantine counts should be used to explain differences.
+Summarize quarantined records:
 
-## Retry, restart, and backfill
-- Transient HTTP failures and network timeouts retry up to `MAX_RETRIES` using exponential backoff; `Retry-After` takes precedence.
-- Non-retryable HTTP failures (including 401/404) fail the run and record the failure reason.
-- Each page's raw response, record writes, quarantine writes and checkpoint are committed together. Restart resumes at the next unprocessed page.
-- `--backfill` clears checkpoints and replays source pages; deterministic keys and upserts keep target tables idempotent.
+```sql
+SELECT
+    entity,
+    reason,
+    COUNT(*) AS rejected_rows
+FROM quarantine
+GROUP BY entity, reason
+ORDER BY rejected_rows DESC;
+```
+
+Count the records in the target tables:
+
+```sql
+SELECT COUNT(*) AS customers FROM customers;
+SELECT COUNT(*) AS orders FROM orders;
+SELECT COUNT(*) AS event_versions FROM order_events;
+```
+
+Check for orphan orders:
+
+```sql
+SELECT COUNT(*) AS orphan_orders
+FROM orders o
+LEFT JOIN customers c USING (customer_id)
+WHERE c.customer_id IS NULL;
+```
+
+Expected invariant: `orphan_orders = 0`.
+
+The target tables are designed to avoid duplicate order IDs and duplicate `(order_id, event_version)` pairs. Rejected records remain available in quarantine.
+
+A run's input count represents records fetched during that run. Its output count represents accepted records processed, including accepted upserts. These counts may differ from the current number of rows in the target tables.
+
+## Retry, Restart, and Backfill
+
+- Transient HTTP failures and network timeouts are retried up to `MAX_RETRIES` using exponential backoff.
+- `Retry-After` takes precedence when provided by the API.
+- Non-retryable HTTP errors, including 401 and 404, fail the run rather than being retried as transient failures.
+- Raw page retention, record writes, quarantine writes, and the page checkpoint are committed together in SQLite.
+- Restarting ingestion resumes from the next unprocessed page.
+- `--backfill` clears checkpoints and replays source pages. Deterministic keys and upserts support idempotent publishing.
 - The mock API can be reset by calling `POST /admin/reset-faults` with `X-API-Key: local-demo-key`.
 
-## Performance measurement
-The `scripts/benchmark.py` script runs repeatable synthetic volumes and reports elapsed time and records/second. In this environment, generating 1,000 customers and 10,005 orders took 0.038 seconds (about 289,670 generated records/second); this measures synthetic data generation, not database ingestion. A real mock-API integration run ingested 605 source records across 7 pages in approximately 1.67 seconds, accepted 601 and quarantined 4. Actual execution time may vary between runs. A sensible first optimization is batched SQLite writes (`executemany`) after profiling. The design intentionally avoids unnecessary cloud infrastructure for a 72-hour take-home.
+Page-number pagination cannot guarantee a consistent snapshot if the source dataset changes while pages are being fetched. Raw files and SQLite transactions are also separate resources and are not committed atomically together.
 
-## Repository contents
-- `src/pipeline/mock_api.py` — reproducible local API with pagination, auth, rate limit and transient faults
-- `src/pipeline/ingest.py` — retrying, checkpointed ingestion and data quality rules
-- `src/pipeline/db.py` — target and operational schema
-- `src/pipeline/generator.py` — deterministic synthetic data
+## Performance Measurement
+
+Run the synthetic-data benchmark with:
+
+```powershell
+python scripts/benchmark.py
+```
+
+The previously recorded benchmark generated 1,000 customers and 10,005 orders in approximately 0.038 seconds, or about 289,670 generated records per second.
+
+**This measures synthetic-data generation, not end-to-end database ingestion.**
+
+The demonstrated mock-API integration run processed 605 source records across 7 pages in approximately 1.67 seconds, accepted 601 records, and quarantined 4. These figures are illustrative and may vary by environment.
+
+Performance optimization should be based on profiling. Batched SQLite writes using `executemany` may be worth evaluating if database writes are identified as a bottleneck.
+
+## Repository Contents
+
+- `src/pipeline/mock_api.py` — local mock API with pagination, authentication, rate limiting, and transient fault simulation
+- `src/pipeline/ingest.py` — retrying, checkpointed ingestion and data-quality rules
+- `src/pipeline/db.py` — target tables and operational database schema
+- `src/pipeline/generator.py` — deterministic synthetic data generation
 - `tests/` — automated tests
-- `docs/` — schema dictionary and trade-offs
-- `.github/workflows/tests.yml` — CI tests
+- `docs/` — data dictionary and design trade-offs
+- `sql/` — SQL validation and reconciliation queries
+- `scripts/benchmark.py` — synthetic-data generation benchmark
+- `.github/workflows/tests.yml` — automated test workflow
+
+## Project Goal
+
+Demonstrate a reliable, testable, and locally reproducible API ingestion pipeline with explicit handling of transient failures, data quality issues, restartability, and idempotent publishing.
