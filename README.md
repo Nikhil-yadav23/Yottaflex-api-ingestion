@@ -267,7 +267,7 @@ The previously recorded benchmark generated 1,000 customers and 10,005 orders in
 
 **This measures synthetic-data generation, not end-to-end database ingestion.**
 
-The demonstrated mock-API integration run processed 605 source records across 7 pages in approximately 1.67 seconds, accepted 601 records, and quarantined 4. These figures are illustrative and may vary by environment.
+The demonstrated mock-API integration run processed 605 source records across 7 pages in approximately 1.502 seconds, accepted 601 records, and quarantined 4. These figures are illustrative and may vary by environment.
 
 Performance optimization should be based on profiling. Batched SQLite writes using `executemany` may be worth evaluating if database writes are identified as a bottleneck.
 
