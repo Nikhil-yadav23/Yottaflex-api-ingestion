@@ -146,3 +146,80 @@ def test_transient_http_error_is_retried(monkeypatch, tmp_path):
     payload, status = pipe._get_page("customers", 1)
     assert status == 200 and payload["data"] == []
     assert fake.calls == 2
+
+
+
+def test_stale_order_event_is_quarantined_without_overwriting_newer_version(tmp_path):
+    data = {
+        "customers": [
+            {
+                "customer_id": "c1",
+                "email": "c1@example.test",
+                "created_at": "2025-01-01T00:00:00Z",
+                "status": "active",
+            }
+        ],
+        "orders": [
+            {
+                "order_id": "o1",
+                "customer_id": "c1",
+                "amount": 10.5,
+                "currency": "USD",
+                "status": "paid",
+                "updated_at": "2025-01-02T00:00:00Z",
+                "event_version": 2,
+            },
+            {
+                "order_id": "o1",
+                "customer_id": "c1",
+                "amount": 5.0,
+                "currency": "USD",
+                "status": "created",
+                "updated_at": "2025-01-01T00:00:00Z",
+                "event_version": 1,
+            },
+        ],
+    }
+
+    class FakePipeline(IngestionPipeline):
+        def _get_page(self, entity, page):
+            records = data[entity]
+            if page > 1:
+                return {"data": [], "next_page": None}, 200
+            return {"data": records, "next_page": None}, 200
+
+    db = tmp_path / "stale_event.db"
+    pipe = FakePipeline(
+        db_path=str(db),
+        raw_dir=str(tmp_path / "raw"),
+        page_size=10,
+        requests_per_second=10000,
+    )
+
+    result = pipe.run()
+
+    assert result["status"] == "success"
+    assert result["input"] == 3
+    assert result["output"] == 2
+    assert result["rejected"] == 1
+
+    conn = connect(db)
+
+    order = conn.execute(
+        "SELECT event_version, amount, status FROM orders WHERE order_id = 'o1'"
+    ).fetchone()
+
+    assert order["event_version"] == 2
+    assert order["amount"] == 10.5
+    assert order["status"] == "paid"
+
+    assert conn.execute(
+        "SELECT COUNT(*) FROM order_events"
+    ).fetchone()[0] == 1
+
+    assert conn.execute(
+        "SELECT COUNT(*) FROM quarantine "
+        "WHERE reason = 'stale_out_of_order_event'"
+    ).fetchone()[0] == 1
+
+    conn.close()
