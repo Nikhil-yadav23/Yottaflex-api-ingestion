@@ -43,14 +43,17 @@ def test_happy_path_quarantine_idempotency_and_raw_retention(tmp_path):
     pipe = FakePipeline(db_path=str(db), raw_dir=str(tmp_path / "raw"), page_size=10, requests_per_second=10000)
     first = pipe.run()
     assert first["status"] == "success"
-    assert first["input"] == 4
-    assert first["rejected"] == 2
+    assert first["input"] == 8
+    assert first["output"] == 2
+    assert first["rejected"] == 6
     conn = connect(db)
     assert conn.execute("SELECT COUNT(*) FROM customers").fetchone()[0] == 1
     assert conn.execute("SELECT COUNT(*) FROM orders").fetchone()[0] == 1
-    assert conn.execute("SELECT COUNT(*) FROM quarantine").fetchone()[0] == 2
+    assert conn.execute("SELECT COUNT(*) FROM quarantine").fetchone()[0] == 6
     assert conn.execute("SELECT COUNT(*) FROM raw_pages").fetchone()[0] == 2
     assert conn.execute("SELECT COUNT(*) FROM order_events").fetchone()[0] == 1
+    assert conn.execute("SELECT COUNT(*) FROM quarantine WHERE reason = 'record_not_object'").fetchone()[0] == 4
+    assert conn.execute("SELECT COUNT(*) FROM pipeline_runs WHERE status = 'failed'").fetchone()[0] == 0
     conn.close()
     # A normal rerun starts after the saved checkpoints and does not duplicate target rows.
     second = pipe.run()
