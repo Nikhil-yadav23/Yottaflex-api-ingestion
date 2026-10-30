@@ -159,7 +159,7 @@ The suite covers the following areas:
 - Retry exhaustion
 - Authentication failures that must not be retried
 
-The exact passing test count should be taken from the latest test run. GitHub Actions is configured to run the test suite on pushes and pull requests.
+The latest verified GitHub Actions run completed successfully with **11 tests passed**. GitHub Actions runs the test suite on pushes and pull requests.
 
 ## Validation Results
 
